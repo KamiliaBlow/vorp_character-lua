@@ -10,6 +10,8 @@ TriggerEvent("getCore", function(core)
 	end)
 end)
 
+local VORPInv = exports.vorp_inventory:vorp_inventoryApi()
+
 RegisterServerEvent("vorp_CreateNewCharacter", function(source)
 	TriggerClientEvent("vorpcharacter:startCharacterCreator", source)
 end)
@@ -181,23 +183,25 @@ AddEventHandler("vorp_GoToSelectionMenu", function(source)
 	TriggerClientEvent("vorpcharacter:selectCharacter", _source, UserCharacters, MaxCharacters)
 end)
 
-local VORPInv = exports.vorp_inventory:vorp_inventoryApi()
+CreateThread(function()
+	Wait(1000)
+	VORPInv.RegisterUsableItem(Config.secondChanceItem, function(data)
+		local _source = data.source
+		local User = VorpCore.getUser(_source)
 
-VORPInv.RegisterUsableItem(Config.secondChanceItem, function(data)
-	local _source = data.source
-	local User = VorpCore.getUser(_source)
+		if not User then
+			return false
+		end
 
-	if not User then
-		return false
-	end
-
-	VORPInv.CloseInv(_source)
-	local Characters = User.getUsedCharacter
-	local CharacterSkin = json.decode(Characters.skin)
-	local CharacterComps = json.decode(Characters.comps)
-	VORPInv.subItem(_source, Config.secondChanceItem, 1)
-	TriggerClientEvent("vorp_character:Server:SecondChance", _source, CharacterSkin, CharacterComps)
+		VORPInv.CloseInv(_source)
+		local Characters = User.getUsedCharacter
+		local CharacterSkin = json.decode(Characters.skin)
+		local CharacterComps = json.decode(Characters.comps)
+		VORPInv.subItem(_source, Config.secondChanceItem, 1)
+		TriggerClientEvent("vorp_character:Server:SecondChance", _source, CharacterSkin, CharacterComps)
+	end)
 end)
+
 
 RegisterNetEvent("vorp_character:Client:SecondChanceSave", function(skin, comps)
 	local _source = source
