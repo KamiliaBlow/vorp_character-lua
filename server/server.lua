@@ -1,6 +1,7 @@
 ---@diagnostic disable: undefined-global
 local VorpCore
 local MaxCharacters
+local VORPInv = exports.vorp_inventory:vorp_inventoryApi()
 
 TriggerEvent("getCore", function(core)
 	VorpCore = core
