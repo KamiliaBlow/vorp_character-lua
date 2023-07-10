@@ -1,74 +1,26 @@
 ---@diagnostic disable: undefined-global
-local isInCharacterSelector = false
 local selectedChar = 1
-local pedHandler
-local mainCamera
-local myChars = {}
-local textureId = -1
+local myChars      = {}
+local textureId    = -1
 local MaxCharacters
-local PromptGroup = GetRandomIntInRange(0, 0xffffff)
-local createPrompt
-local deletePrompt
-local swapPrompt
-local selectPrompt
-local canContinue = false
+local mainCam      = nil
+local LastCam      = nil
+local random
+local canContinue  = false
+local Custom       = nil
+local Peds         = {}
 
 -- GLOBALS
-CachedSkin = {}
-CachedComponents = {}
-T = Translation.Langs[Lang]
+CachedSkin         = {}
+CachedComponents   = {}
+T                  = Translation.Langs[Lang]
 
-local function RegisterPrompts()
-	local str = T.PromptLabels.promptcreateNew
-	createPrompt = PromptRegisterBegin()
-	PromptSetControlAction(createPrompt, Config.keys.prompt_create.key)
-	str = CreateVarString(10, 'LITERAL_STRING', str)
-	PromptSetText(createPrompt, str)
-	PromptSetEnabled(createPrompt, 1)
-	PromptSetVisible(createPrompt, 1)
-	PromptSetHoldMode(createPrompt, 3000)
-	PromptSetGroup(createPrompt, PromptGroup)
-	PromptRegisterEnd(createPrompt)
-
-	local dstr = T.PromptLabels.promptdeleteCurrent
-	deletePrompt = PromptRegisterBegin()
-	PromptSetControlAction(deletePrompt, Config.keys.prompt_delete.key)
-	dstr = CreateVarString(10, 'LITERAL_STRING', dstr)
-	PromptSetText(deletePrompt, dstr)
-	PromptSetEnabled(deletePrompt, Config.AllowPlayerDeleteCharacter)
-	PromptSetVisible(deletePrompt, 1)
-	PromptSetHoldMode(deletePrompt, 5000)
-	PromptSetGroup(deletePrompt, PromptGroup)
-	PromptRegisterEnd(deletePrompt)
-
-	local dstr = T.PromptLabels.promptswapChar
-	swapPrompt = PromptRegisterBegin()
-	PromptSetControlAction(swapPrompt, Config.keys.prompt_swap.key)
-	dstr = CreateVarString(10, 'LITERAL_STRING', dstr)
-	PromptSetText(swapPrompt, dstr)
-	PromptSetEnabled(swapPrompt, 1)
-	PromptSetVisible(swapPrompt, 1)
-	PromptSetStandardMode(swapPrompt, 1)
-	PromptSetGroup(swapPrompt, PromptGroup)
-	PromptRegisterEnd(swapPrompt)
-
-	local dstr = T.PromptLabels.promptselectChar
-	selectPrompt = PromptRegisterBegin()
-	PromptSetControlAction(selectPrompt, Config.keys.prompt_select.key)
-	dstr = CreateVarString(10, 'LITERAL_STRING', dstr)
-	PromptSetText(selectPrompt, dstr)
-	PromptSetEnabled(selectPrompt, 1)
-	PromptSetVisible(selectPrompt, 1)
-	PromptSetStandardMode(selectPrompt, 1)
-	PromptSetGroup(selectPrompt, PromptGroup)
-	PromptRegisterEnd(selectPrompt)
-end
 
 AddEventHandler('onClientResourceStart', function(resourceName)
 	if (GetCurrentResourceName() ~= resourceName) then
 		return
 	end
-	RegisterPrompts()
+
 	if Config.DevMode then
 		print("^3VORP Character Selector is in ^1DevMode^7 dont use in live servers")
 		TriggerServerEvent("vorp_GoToSelectionMenu", GetPlayerServerId(PlayerId()))
@@ -80,11 +32,13 @@ AddEventHandler('onResourceStop', function(resourceName)
 		return
 	end
 
+	for _, value in pairs(Peds) do
+		DeleteEntity(value)
+	end
 	Citizen.InvokeNative(0xB63B9178D0F58D82, textureId) -- reset texture
 	Citizen.InvokeNative(0x6BEFAA907B076859, textureId) -- remove texture
 	DeleteEntity(MalePed)
 	DeleteEntity(FemalePed)
-	DeletePed(pedHandler)
 	DoScreenFadeIn(100)
 	RemoveImaps()
 	Citizen.InvokeNative(0x706D57B0F50DA710, "MC_MUSIC_STOP")
@@ -102,45 +56,14 @@ end)
 
 -- player is already in an instance
 RegisterNetEvent("vorpcharacter:selectCharacter")
-AddEventHandler("vorpcharacter:selectCharacter", function(myCharacters, mc)
-	local param = Config.selectedCharacter
-	local customWeather = Config.toggleWeatherSync
-	local weather = Config.charselWeather
-	local permSnow = Config.charselgroundSnow
-	local hour = Config.timeHour
-	local freeze = Config.timeFreeze
-
+AddEventHandler("vorpcharacter:selectCharacter", function(myCharacters, mc, rand)
 	if #myCharacters < 1 then
 		return TriggerEvent("vorpcharacter:startCharacterCreator") -- if no chars then send back to creator
 	end
+	random = rand
 	myChars = myCharacters
 	MaxCharacters = mc
 	DoScreenFadeOut(1000)
-	Wait(1000)
-
-	if customWeather then
-		exports.weathersync:setMyWeather(weather, 10, permSnow) -- Disable weather and time sync and set a weather for this client.
-		exports.weathersync:setMyTime(hour, 0, 0, 10, freeze)
-	end
-
-	isInCharacterSelector = true
-	Controller()
-	FreezeEntityPosition(PlayerPedId(), true)
-	SetEntityVisible(PlayerPedId(), false)
-	SetEntityInvincible(PlayerPedId(), true)
-	SetEntityCoords(PlayerPedId(), param.coords, false, false, false, false)
-
-	RequestCollisionAtCoord(param.cameraParams.x, param.cameraParams.y, param.cameraParams.z)
-	while not HasCollisionLoadedAroundEntity(PlayerPedId()) do
-		Wait(0)
-	end
-
-	mainCamera = CreateCamWithParams("DEFAULT_SCRIPTED_CAMERA", param.cameraParams.x, param.cameraParams.y,
-		param.cameraParams.z, param.cameraParams.rotX, param.cameraParams.rotY, param.cameraParams.rotZ,
-		param.cameraParams.fov, false, 0)
-	SetCamActive(mainCamera, true)
-	RenderScriptCams(true, true, 1000, true, true, 0)
-	DoScreenFadeIn(6000)
 	Wait(1000)
 	StartSwapCharacters()
 end)
@@ -200,91 +123,6 @@ AddEventHandler("vorpcharacter:savenew", function(comps, skin)
 end)
 
 
-function Controller()
-	CreateThread(function()
-		while true do
-			if isInCharacterSelector then
-				local firstname = myChars[selectedChar].firstname or ""
-				local lastname = myChars[selectedChar].lastname or ""
-				local fullname = (firstname .. " " .. lastname) or ""
-
-				local label = CreateVarString(10, 'LITERAL_STRING',
-					T.PromptLabels.promptselect ..
-					fullname .. T.PromptLabels.promptselect2 .. myChars[selectedChar].money)
-				PromptSetActiveGroupThisFrame(PromptGroup, label)
-
-				-- this needs to be prompts
-				if Citizen.InvokeNative(0xC92AC953F0A982AE, swapPrompt) then
-					if selectedChar == #myChars then
-						selectedChar = 1
-					else
-						selectedChar = selectedChar + 1
-					end
-					TaskGoToCoordAnyMeans(pedHandler, Config.selectedCharacter.initialPos.coords, 0.8, 0, false, 524419,
-						-1)
-					while not IsEntityAtCoord(pedHandler, Config.selectedCharacter.initialPos.coords, 1.5, 1.5, 1.2, 0, 1, 0) do
-						Wait(0)
-					end
-					StartSwapCharacters()
-				end
-
-				if Citizen.InvokeNative(0xC92AC953F0A982AE, selectPrompt) then
-					CharSelect()
-					isInCharacterSelector = false
-					exports.weathersync:toggleSync() -- enable weather sync
-					break
-				end
-
-				if PromptHasHoldModeCompleted(createPrompt) then -- create
-					if #myChars < MaxCharacters then
-						DeletePed(pedHandler)
-						isInCharacterSelector = false
-						TriggerEvent("vorpcharacter:startCharacterCreator")
-						break
-					else
-						VORPcore.NotifyObjective("you cant create more characers", 8000)
-					end
-				end
-
-				if PromptHasHoldModeCompleted(deletePrompt) then -- delete
-					isInCharacterSelector = false
-					DeleteEntity(pedHandler)
-
-					TriggerServerEvent("vorpcharacter:deleteCharacter", myChars[selectedChar].charIdentifier)
-					table.remove(myChars, selectedChar)
-					if selectedChar <= 1 then
-						selectedChar = #myChars
-					else
-						selectedChar = selectedChar - 1
-					end
-
-					if #myChars == 0 or myChars == nil then
-						TriggerEvent("vorpcharacter:startCharacterCreator")
-						isInCharacterSelector = false
-					else
-						isInCharacterSelector = true
-						StartSwapCharacters()
-					end
-				end
-			end
-			Wait(0)
-		end
-	end)
-end
-
-local function EnablePrompt(boolean)
-	PromptSetEnabled(createPrompt, boolean)
-	PromptSetEnabled(deletePrompt, Config.AllowPlayerDeleteCharacter)
-	PromptSetEnabled(swapPrompt, boolean)
-	PromptSetEnabled(logoutPrompt, boolean)
-	PromptSetEnabled(selectPrompt, boolean)
-	PromptSetVisible(createPrompt, boolean)
-	PromptSetVisible(deletePrompt, boolean)
-	PromptSetVisible(swapPrompt, boolean)
-	PromptSetVisible(selectPrompt, boolean)
-	PromptSetVisible(logoutPrompt, boolean)
-end
-
 local function LoadFaceFeatures(ped, skin)
 	for key, value in pairs(FaceFeatures) do
 		Citizen.InvokeNative(0x5653AB26C82938CF, ped, value, skin[key])
@@ -293,32 +131,13 @@ local function LoadFaceFeatures(ped, skin)
 end
 
 local function LoadComps(ped, components)
-	local boots = -1
 	for category, value in pairs(components) do
-		if value ~= -1 --[[ and category ~= "Boots" ]] then
-			--Citizen.InvokeNative(0x704C908E9C405136, ped)
-
-
-			Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, value, false, false, false)
+		if value ~= -1 then
 			Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, value, false, true, false)
 			Citizen.InvokeNative(0x66b957aac2eaaeab, ped, value, 0, 0, 1, 1) -- _UPDATE_SHOP_ITEM_WEARABLE_STATE
 			Citizen.InvokeNative(0xAAB86462966168CE, ped, 1)        --_CLEAR
 		end
-
-		--[[ if value ~= -1 and category == "Boots" then
-			boots = value
-		end ]]
 	end
-
-	--[[ -- load boots for last so they dont clip with pants
-	if boots ~= -1 then
-		if Config.UseSPclothing then
-			Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, boots, false, false, false)
-		end
-		Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, boots, false, true, false)
-		Citizen.InvokeNative(0x66b957aac2eaaeab, ped, boots, 0, 0, 1, 1) -- _UPDATE_SHOP_ITEM_WEARABLE_STATE
-		Citizen.InvokeNative(0xAAB86462966168CE, ped, 1)           --_CLEAR
-	end ]]
 end
 
 local function LoadAll(gender, ped, pedskin, components)
@@ -343,8 +162,8 @@ local function LoadAll(gender, ped, pedskin, components)
 	LoadFaceFeatures(ped, skin)
 	Citizen.InvokeNative(0xCC8CA3E88256E58F, ped, false, true, true, true, false)
 	LoadComps(ped, components)
-	SetPedScale(PlayerPedId(), skin.Scale)
-	UpdateVariation(PlayerPedId())
+	SetPedScale(ped, skin.Scale)
+	UpdateVariation(ped)
 	return skin
 end
 
@@ -363,32 +182,286 @@ local function LoadCharacterSelect(ped, skin, components)
 	Citizen.InvokeNative(0xC6258F41D86676E0, ped, 1, 100)
 	Citizen.InvokeNative(0xC6258F41D86676E0, ped, 0, 100)
 end
+-- if you have 3 positions here it means  you can olny have max characters of 3 or add more make sure you add 3 for each in case they only want females or only males
+
 
 function StartSwapCharacters()
-	local spawn = Config.selectedCharacter.initialPos
-	local gotoC = Config.selectedCharacter.gotoPos
-	EnablePrompt(false)
-	DeleteEntity(pedHandler)
-	LoadPlayer(myChars[selectedChar].skin.sex)
-	pedHandler = CreatePed(joaat(myChars[selectedChar].skin.sex), spawn.coords, spawn.heading, false, true, true, true)
-	Wait(500)
-	LoadCharacterSelect(pedHandler, myChars[selectedChar].skin, myChars[selectedChar].components)
-	TaskGoToCoordAnyMeans(pedHandler, gotoC.coords, 0.8, 0, false, 524419, -1)
-	while not IsEntityAtCoord(pedHandler, gotoC.coords, 0.5, 0.5, 0.2, 0, 1, 0) do
-		Wait(0)
+	local options = Config.SpawnPosition[random].options
+	exports.weathersync:setMyWeather(options.weather.type, options.weather.transition, options.weather.snow) -- Disable weather and time sync and set a weather for this client.
+	exports.weathersync:setMyTime(options.time.hour, 0, 0, options.time.transition, true)
+	SetTimecycleModifier(options.timecycle.name)
+	Citizen.InvokeNative(0xFDB74C9CC54C3F37, options.timecycle.strenght)
+	FreezeEntityPosition(PlayerPedId(), true)
+	SetEntityVisible(PlayerPedId(), false)
+	SetEntityInvincible(PlayerPedId(), true)
+	SetEntityCoords(PlayerPedId(), options.playerpos, false, false, false, false)
+
+	if not HasCollisionLoadedAroundEntity(PlayerPedId()) then
+		RequestCollisionAtCoord(options.playerpos.x, options.playerpos.y, options.playerpos.z)
+		Wait(2000)
 	end
-	EnablePrompt(true)
+
+	while not HasCollisionLoadedAroundEntity(PlayerPedId()) do
+		RequestCollisionAtCoord(options.playerpos.x, options.playerpos.y, options.playerpos.z)
+		Wait(100)
+	end
+
+	PrepareMusicEvent(options.music)
+	Wait(100)
+	TriggerMusicEvent(options.music)
+
+	Wait(2000)
+
+	for key, value in pairs(myChars) do
+		LoadPlayer(value.skin.sex)
+
+		local data = Config.SpawnPosition[random].positions[key]
+		data.PedHandler = CreatePed(joaat(value.skin.sex), data.spawn, false, true, true, true)
+
+		while not DoesEntityExist(data.PedHandler) do
+			Wait(100)
+		end
+
+		LoadCharacterSelect(data.PedHandler, value.skin, value.components)
+		data.Cam = CreateCamWithParams("DEFAULT_SCRIPTED_CAMERA",
+			data.camera.x, data.camera.y, data.camera.z, data.camera.rotx, data.camera.roty, data.camera.rotz,
+			data.camera.fov, false, 2)
+		SetEntityInvincible(data.PedHandler, true)
+		Wait(100)
+		local randomScenario = math.random(1, #data.scenario[value.skin.sex])
+		Citizen.InvokeNative(0x524B54361229154F, data.PedHandler, joaat(data.scenario[value.skin.sex][randomScenario]),
+			-1, false, joaat(data.scenario[value.skin.sex][randomScenario]), -1.0, 0)
+		Peds[#Peds + 1] = data.PedHandler
+	end
+
+	-- create main camera
+	mainCam = CreateCamWithParams("DEFAULT_SCRIPTED_CAMERA", options.mainCam.x, options.mainCam.y, options.mainCam.z,
+		options.mainCam.rotx,
+		options.mainCam.roty, options.mainCam.rotz, options.mainCam.fov, false, 0)
+	SetCamActive(mainCam, true)
+	RenderScriptCams(true, false, 0, true, true)
+	Wait(2000)
+	DoScreenFadeIn(4000)
+	OpenMenuSelect()
+end
+
+local function finish(boolean)
+	MenuData.CloseAll()
+	--RenderScriptCams(false, true, 5000, true, true)
+	if boolean then
+		DoScreenFadeOut(1000)
+		Wait(5000)
+	end
+	CreateThread(function()
+		Wait(2000)
+		for _, value in pairs(Peds) do
+			DeleteEntity(value)
+		end
+
+		DestroyAllCams(true)
+	end)
+	ClearTimecycleModifier()
+	Citizen.InvokeNative(0x706D57B0F50DA710, "MC_MUSIC_STOP")
+	exports.weathersync:setSyncEnabled(true)
+end
+local imgPath = "<img style='max-height:532px;max-width:344px;float: center;'src='nui://vorp_character/images/%s.png'>"
+local function addNewelements(menu)
+	local available = MaxCharacters - #myChars
+	for i = 1, available, 1 do
+		menu.addNewElement({
+			label = "Create a new character",
+			value = "create",
+			desc = imgPath:format("character_creator_appearance") .. "<br> Switch characters by pressing enter",
+			itemHeight = "2vh"
+
+		})
+	end
+end
+
+local function createMainCam()
+	local data = Config.SpawnPosition[random].options
+	mainCam = CreateCamWithParams("DEFAULT_SCRIPTED_CAMERA", data.mainCam.x, data.mainCam.y, data.mainCam.z,
+		data.mainCam.rotx, data.mainCam.roty,
+		data.mainCam.rotz, data.mainCam.fov, false, 2)
+	SetCamActive(mainCam, true)
+	RenderScriptCams(true, false, 0, true, true)
+end
+
+function OpenMenuSelect()
+	MenuData.CloseAll()
+	local elements = {}
+	local available = MaxCharacters - #myChars
+	local created = true
+
+
+	for key, value in pairs(myChars) do
+		elements[#elements + 1] = {
+			label = "Name: " .. value.firstname .. " " .. value.lastname .. "<br>Money: $" .. value.money,
+			value = "choose",
+			desc = imgPath:format("character_creator_appearance") .. "<br> select character by pressing enter",
+			char = value,
+			index = key, -- selected character index
+		}
+	end
+
+	for i = 1, available, 1 do
+		elements[#elements + 1] = {
+			label = "Create a new character",
+			value = "create",
+			desc = imgPath:format("character_creator_appearance") .. "<br>create a new character by pressing enter",
+			itemHeight = "2vh",
+		}
+	end
+	Wait(1000)
+	AnimpostfxPlay("RespawnPulse01")
+	MenuData.Open('default', GetCurrentResourceName(), 'menuapi',
+		{
+			title = T.MenuCreation.title,
+			subtext = T.MenuCreation.subtitle,
+			align = Config.Align,
+			elements = elements,
+			itemHeight = "4vh",
+		},
+
+		function(data, menu)
+			if (data.current.value == "back") then -- go back
+				createMainCam()
+				addNewelements(menu)
+				for key, value in pairs(menu.data.elements) do
+					if value.value == "delete" or value.value == "back" or value.value == "select" then
+						menu.removeElementByValue(value.value, false)
+					end
+				end
+				menu.refresh()
+				SetCamActiveWithInterp(mainCam, LastCam, 3000, 500, 500)
+				created = true
+			end
+
+			if (data.current.value == "choose") then
+				selectedChar = data.current.index
+				--local char = data.current.char
+				local dataConfig = Config.SpawnPosition[random].positions[selectedChar]
+				local cam = dataConfig.Cam
+				SetCamActiveWithInterp(cam, mainCam or LastCam, 3000, 500, 500)
+				--local playername = char.firstname .. " " .. char.lastname
+				LastCam = cam
+				-- MOTION BLUR
+				Citizen.InvokeNative(0x45FD891364181F9E, cam, 30.0)
+
+				if IsCamActive(mainCam) then
+					SetCamActive(mainCam, false)
+					mainCam = nil
+				end
+
+				if created then
+					created = false
+					for _, value in pairs(menu.data.elements) do
+						if value.value == "create" then
+							menu.removeElementByValue(value.value, false)
+						end
+					end
+					menu.addNewElement({
+						label = "Spawn",
+						value = "select",
+						desc = imgPath:format("character_creator_appearance") ..
+							"<br> select this character to spawn in the world",
+						char = selectedChar,
+						itemHeight = "2vh",
+					})
+					if Config.AllowPlayerDeleteCharacter then
+						menu.addNewElement({
+							label = "Delete",
+							value = "delete",
+							desc = imgPath:format("character_creator_appearance") ..
+								"<br> delete this character",
+							char = selectedChar,
+							Data = dataConfig,
+							itemHeight = "2vh",
+						})
+					end
+					menu.addNewElement({
+						label = "Go back",
+						value = "back",
+						desc = imgPath:format("character_creator_appearance") .. "<br> go back to character selection",
+						char = data.current.char,
+						itemHeight = "2vh",
+					})
+					menu.refresh()
+				else
+					-- chane elements only
+					for key, value in pairs(menu.data.elements) do
+						if value.value == "delete" and Config.AllowPlayerDeleteCharacter then
+							menu.setElement(key, "label", "Delete")
+							menu.setElement(key, "char", selectedChar)
+							menu.setElement(key, "Data", dataConfig)
+							menu.refresh()
+						elseif value.value == "select" then
+							menu.setElement(key, "label", "Spawn")
+							menu.setElement(key, "char", selectedChar)
+							menu.refresh()
+						end
+					end
+				end
+			end
+
+			if Config.AllowPlayerDeleteCharacter then
+				if (data.current.value == "delete") then
+					DeleteEntity(data.current.Data.PedHandler)
+
+					-- * remove elements not needed * --
+					for key, value in pairs(menu.data.elements) do
+						if value.value == "choose" and key == selectedChar then
+							menu.removeElementByIndex(key, true)
+						end
+						if value.value == "delete" or value.value == "back" or value.value == "select" then
+							menu.removeElementByValue(value.value, false)
+						end
+					end
+					menu.refresh()
+					TriggerServerEvent("vorpcharacter:deleteCharacter", myChars[selectedChar].charIdentifier)
+					table.remove(myChars, selectedChar)
+
+					-- * if no characters left, go back to character creation * --
+					if #myChars == 0 or myChars == nil then
+						TriggerEvent("vorpcharacter:startCharacterCreator")
+						return finish(false)
+					end
+
+					createMainCam()
+					SetCamActiveWithInterp(mainCam, data.current.Data.Cam, 3000, 500, 500)
+					addNewelements(menu)
+					menu.refresh()
+					created = true
+				end
+			end
+
+			if (data.current.value == "create") then
+				finish(false)
+				Wait(2000)
+				TriggerEvent("vorpcharacter:startCharacterCreator")
+			end
+
+			if (data.current.value == "select") then
+				AnimpostfxPlay("RespawnPulse01")
+				selectedChar = data.current.char
+				local dataConfig = Config.SpawnPosition[random].positions[selectedChar]
+				Citizen.InvokeNative(0x524B54361229154F, dataConfig.PedHandler, "", -1, false, "", -1.0, 0)
+				finish(true)
+				CharSelect()
+			end
+		end, function(menu, data)
+
+		end)
 end
 
 function CharSelect()
-	DoScreenFadeOut(1000)
 	Wait(1000)
 	local charIdentifier = myChars[selectedChar].charIdentifier
 	local nModel = tostring(myChars[selectedChar].skin.sex)
 	CachedSkin = myChars[selectedChar].skin
 	CachedComponents = myChars[selectedChar].components
 	TriggerServerEvent("vorp_CharSelectedCharacter", charIdentifier)
-	DeleteEntity(pedHandler)
+
 	RequestModel(nModel)
 	while not HasModelLoaded(nModel) do
 		Wait(0)
@@ -396,20 +469,12 @@ function CharSelect()
 	Wait(1000)
 	SetPlayerModel(PlayerId(), joaat(nModel), false)
 	SetModelAsNoLongerNeeded(nModel)
-	--Citizen.InvokeNative(0x77FF8D35EEC6BBC4, PlayerPedId(), 0, 0)
 	Wait(1000)
-	--LoadPlayerComponents(PlayerPedId(), CachedSkin, CachedComponents)
-	--Wait(100)
-	IsPedReadyToRender()
-	Citizen.InvokeNative(0x0BFA1BD465CDFEFD, ped)
+	LoadPlayerComponents(PlayerPedId(), CachedSkin, CachedComponents)
 	NetworkClearClockTimeOverride()
 	FreezeEntityPosition(PlayerPedId(), false)
 	SetEntityVisible(PlayerPedId(), true)
 	SetEntityInvincible(PlayerPedId(), false)
-	SetCamActive(mainCamera, false)
-	DestroyCam(mainCamera, true)
-	RenderScriptCams(true, true, 1000, true, true, 0)
-	LoadPlayerComponents(PlayerPedId(), CachedSkin, CachedComponents)
 	local coords = myChars[selectedChar].coords
 	local heading
 	local playerCoords
@@ -421,13 +486,18 @@ function CharSelect()
 		heading = coords.heading
 	end
 	local isDead = myChars[selectedChar].isDead
-	TriggerEvent("vorp:initCharacter", playerCoords, heading, isDead)
+	TriggerEvent("vorp:initCharacter", playerCoords, heading, isDead) -- in here players will be removed from instance
 	DoScreenFadeIn(1000)
 end
 
 RegisterNetEvent("vorpcharacter:reloadafterdeath")
 AddEventHandler("vorpcharacter:reloadafterdeath", function()
-	ExecuteCommand("rc")
+	Wait(5000)
+	LoadPlayer(joaat("CS_dutch"))
+	SetPlayerModel(PlayerId(), joaat("CS_dutch"), false)
+	IsPedReadyToRender()
+	LoadPlayerComponents(PlayerPedId(), myChars[selectedChar].skin, myChars[selectedChar].components)
+	SetModelAsNoLongerNeeded(joaat("CS_dutch"))
 	--heal ped after death
 	local ped = PlayerPedId()
 	Citizen.InvokeNative(0xC6258F41D86676E0, ped, 0, 100)
@@ -441,22 +511,27 @@ function LoadPlayerComponents(ped, skin, components)
 	local gender = "Male"
 
 	if joaat(skin.sex) ~= GetEntityModel(ped) then
+		local skinS
+		if not Custom then
+			skinS = skin.sex
+		else
+			skinS = Custom
+		end
 		-- then player is npc
-		LoadPlayer(joaat(skin.sex))
-		Citizen.InvokeNative(0xED40380076A31506, PlayerId(), joaat(skin.sex), false)
+		LoadPlayer(joaat(skinS))
+		SetPlayerModel(PlayerId(), joaat(skinS), false)
 		IsPedReadyToRender()
 		Citizen.InvokeNative(0xA91E6CF94404E8C9, ped)
 		ped = PlayerPedId()
-		SetModelAsNoLongerNeeded(joaat(skin.sex))
+		SetModelAsNoLongerNeeded(joaat(skinS))
+		Custom = nil
 	end
 
 	if skin.sex ~= "mp_male" then
-		IsPedReadyToRender()
-		Citizen.InvokeNative(0x0BFA1BD465CDFEFD, ped)
+		Citizen.InvokeNative(0x77FF8D35EEC6BBC4, ped, 7, true)
 		gender = "Female"
 	else
-		IsPedReadyToRender()
-		Citizen.InvokeNative(0x0BFA1BD465CDFEFD, ped)
+		Citizen.InvokeNative(0x77FF8D35EEC6BBC4, ped, 4, true)
 	end
 
 	skin = LoadAll(gender, ped, skin, components)
@@ -464,7 +539,7 @@ function LoadPlayerComponents(ped, skin, components)
 	-- Load our face textures
 	FaceOverlay("beardstabble", skin.beardstabble_visibility, 1, 1, 0, 0, 1.0, 0, 1,
 		skin.beardstabble_color_primary, 0, 0, 1, skin.beardstabble_opacity)
-	FaceOverlay("hair", skin.hair_visibility, 1, 1, 0, 0, 1.0, 0, 1,
+		FaceOverlay("hair", skin.hair_visibility, 1, 1, 0, 0, 1.0, 0, 1,
 		skin.hair_color_primary, 0, 0, 1, skin.hair_opacity)
 	FaceOverlay("scars", skin.scars_visibility, skin.scars_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
 		skin.scars_opacity)
@@ -588,7 +663,7 @@ function StartOverlay()
 	UpdateVariation(ped)
 end
 
-RegisterCommand("rc", function()
+RegisterCommand("rc", function(source, args, rawCommand)
 	local __player = PlayerPedId()
 	local hogtied = Citizen.InvokeNative(0x3AA24CCC0D451379, __player)
 	local cuffed = Citizen.InvokeNative(0x74E559B3BC910685, __player)
@@ -597,6 +672,24 @@ RegisterCommand("rc", function()
 		if not next(CachedSkin) and not next(CachedComponents) then
 			return
 		end
+
+		if args[1] ~= "" then
+			Custom = args[1]
+		end
+
 		LoadPlayerComponents(__player, CachedSkin, CachedComponents)
+	end
+end)
+
+-- work arround to fix scale issues
+CreateThread(function()
+	while true do
+		local dead = IsEntityDead(PlayerPedId())
+		if myChars[selectedChar] then
+			if myChars[selectedChar].skin and not dead then
+				SetPedScale(PlayerPedId(), myChars[selectedChar].skin.Scale)
+			end
+		end
+		Wait(1000)
 	end
 end)
