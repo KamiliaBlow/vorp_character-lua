@@ -469,12 +469,13 @@ function CharSelect()
 	Wait(1000)
 	SetPlayerModel(PlayerId(), joaat(nModel), false)
 	SetModelAsNoLongerNeeded(nModel)
-	Wait(1000)
-	LoadPlayerComponents(PlayerPedId(), CachedSkin, CachedComponents)
+	IsPedReadyToRender()
+	Citizen.InvokeNative(0x0BFA1BD465CDFEFD, ped)
 	NetworkClearClockTimeOverride()
 	FreezeEntityPosition(PlayerPedId(), false)
 	SetEntityVisible(PlayerPedId(), true)
 	SetEntityInvincible(PlayerPedId(), false)
+	LoadPlayerComponents(PlayerPedId(), CachedSkin, CachedComponents)
 	local coords = myChars[selectedChar].coords
 	local heading
 	local playerCoords
@@ -492,12 +493,7 @@ end
 
 RegisterNetEvent("vorpcharacter:reloadafterdeath")
 AddEventHandler("vorpcharacter:reloadafterdeath", function()
-	Wait(5000)
-	LoadPlayer(joaat("CS_dutch"))
-	SetPlayerModel(PlayerId(), joaat("CS_dutch"), false)
-	IsPedReadyToRender()
 	LoadPlayerComponents(PlayerPedId(), myChars[selectedChar].skin, myChars[selectedChar].components)
-	SetModelAsNoLongerNeeded(joaat("CS_dutch"))
 	--heal ped after death
 	local ped = PlayerPedId()
 	Citizen.InvokeNative(0xC6258F41D86676E0, ped, 0, 100)
@@ -528,10 +524,12 @@ function LoadPlayerComponents(ped, skin, components)
 	end
 
 	if skin.sex ~= "mp_male" then
-		Citizen.InvokeNative(0x77FF8D35EEC6BBC4, ped, 7, true)
+		IsPedReadyToRender()
+		Citizen.InvokeNative(0x0BFA1BD465CDFEFD, ped)
 		gender = "Female"
 	else
-		Citizen.InvokeNative(0x77FF8D35EEC6BBC4, ped, 4, true)
+		IsPedReadyToRender()
+		Citizen.InvokeNative(0x0BFA1BD465CDFEFD, ped)
 	end
 
 	skin = LoadAll(gender, ped, skin, components)
