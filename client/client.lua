@@ -133,6 +133,7 @@ end
 local function LoadComps(ped, components)
 	for category, value in pairs(components) do
 		if value ~= -1 then
+			Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, value, false, false, false)
 			Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, value, false, true, false)
 			Citizen.InvokeNative(0x66b957aac2eaaeab, ped, value, 0, 0, 1, 1) -- _UPDATE_SHOP_ITEM_WEARABLE_STATE
 			Citizen.InvokeNative(0xAAB86462966168CE, ped, 1)        --_CLEAR
@@ -269,9 +270,9 @@ local function addNewelements(menu)
 	local available = MaxCharacters - #myChars
 	for i = 1, available, 1 do
 		menu.addNewElement({
-			label = "Create a new character",
+			label = T.MainMenu.NewChar,
 			value = "create",
-			desc = imgPath:format("character_creator_appearance") .. "<br> Switch characters by pressing enter",
+			desc = imgPath:format("character_creator_appearance") .. " <br> " .. T.MainMenu.NewCharDesc,
 			itemHeight = "2vh"
 
 		})
@@ -296,9 +297,9 @@ function OpenMenuSelect()
 
 	for key, value in pairs(myChars) do
 		elements[#elements + 1] = {
-			label = "Name: " .. value.firstname .. " " .. value.lastname .. "<br>Money: $" .. value.money,
+			label = T.MainMenu.Name .. value.firstname .. " " .. value.lastname .. " <br> " .. T.MainMenu.Money .. " " .. value.money,
 			value = "choose",
-			desc = imgPath:format("character_creator_appearance") .. "<br> select character by pressing enter",
+			desc = imgPath:format("character_creator_appearance") .. " <br> " .. T.MainMenu.NameDesc,
 			char = value,
 			index = key, -- selected character index
 		}
@@ -306,9 +307,9 @@ function OpenMenuSelect()
 
 	for i = 1, available, 1 do
 		elements[#elements + 1] = {
-			label = "Create a new character",
+			label = T.MainMenu.CreateNewCharT,
 			value = "create",
-			desc = imgPath:format("character_creator_appearance") .. "<br>create a new character by pressing enter",
+			desc = imgPath:format("character_creator_appearance") .. " <br> " .. T.MainMenu.CreateNewCharDesc,
 			itemHeight = "2vh",
 		}
 	end
@@ -361,28 +362,26 @@ function OpenMenuSelect()
 						end
 					end
 					menu.addNewElement({
-						label = "Spawn",
+						label = T.MainMenu.Choose,
 						value = "select",
-						desc = imgPath:format("character_creator_appearance") ..
-							"<br> select this character to spawn in the world",
+						desc = imgPath:format("character_creator_appearance") .. " <br> " .. T.MainMenu.ChooseDesc,
 						char = selectedChar,
 						itemHeight = "2vh",
 					})
 					if Config.AllowPlayerDeleteCharacter then
 						menu.addNewElement({
-							label = "Delete",
+							label = T.MainMenu.Delete,
 							value = "delete",
-							desc = imgPath:format("character_creator_appearance") ..
-								"<br> delete this character",
+							desc = imgPath:format("character_creator_appearance") .. " <br> " .. T.MainMenu.DeleteDesc,
 							char = selectedChar,
 							Data = dataConfig,
 							itemHeight = "2vh",
 						})
 					end
 					menu.addNewElement({
-						label = "Go back",
+						label = T.MainMenu.ReturnMenu,
 						value = "back",
-						desc = imgPath:format("character_creator_appearance") .. "<br> go back to character selection",
+						desc = imgPath:format("character_creator_appearance") .. " <br> " .. T.MainMenu.ReturnMenuDesc,
 						char = data.current.char,
 						itemHeight = "2vh",
 					})
@@ -535,41 +534,23 @@ function LoadPlayerComponents(ped, skin, components)
 	skin = LoadAll(gender, ped, skin, components)
 
 	-- Load our face textures
-	FaceOverlay("beardstabble", skin.beardstabble_visibility, 1, 1, 0, 0, 1.0, 0, 1,
-		skin.beardstabble_color_primary, 0, 0, 1, skin.beardstabble_opacity)
-		FaceOverlay("hair", skin.hair_visibility, 1, 1, 0, 0, 1.0, 0, 1,
-		skin.hair_color_primary, 0, 0, 1, skin.hair_opacity)
-	FaceOverlay("scars", skin.scars_visibility, skin.scars_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
-		skin.scars_opacity)
-	FaceOverlay("spots", skin.spots_visibility, skin.spots_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
-		skin.spots_opacity)
-	FaceOverlay("disc", skin.disc_visibility, skin.disc_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin
-		.disc_opacity)
-	FaceOverlay("complex", skin.complex_visibility, skin.complex_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
-		skin.complex_opacity)
-	FaceOverlay("acne", skin.acne_visibility, skin.acne_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin
-		.acne_opacity)
-	FaceOverlay("ageing", skin.ageing_visibility, skin.ageing_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
-		skin.ageing_opacity)
-	FaceOverlay("freckles", skin.freckles_visibility, skin.freckles_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
-		skin.freckles_opacity)
-	FaceOverlay("moles", skin.moles_visibility, skin.moles_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
-		skin.moles_opacity)
-	FaceOverlay("shadows", skin.shadows_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin.shadows_palette_color_primary,
-		skin.shadows_palette_color_secondary, skin.shadows_palette_color_tertiary, skin.shadows_palette_id,
-		skin.shadows_opacity)
-	FaceOverlay("eyebrows", skin.eyebrows_visibility, skin.eyebrows_tx_id, 1, 0, 0, 1.0, 0, 1,
-		skin.eyebrows_color, 0, 0, 1, skin.eyebrows_opacity)
-	FaceOverlay("eyeliners", skin.eyeliner_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin.eyeliner_color_primary, 0, 0,
-		skin.eyeliner_tx_id, skin.eyeliner_opacity)
-	FaceOverlay("blush", skin.blush_visibility, skin.blush_tx_id, 1, 0, 0, 1.0, 0, 1,
-		skin.blush_palette_color_primary, 0, 0, 1, skin.blush_opacity)
-	FaceOverlay("lipsticks", skin.lipsticks_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin
-		.lipsticks_palette_color_primary, skin.lipsticks_palette_color_secondary,
-		skin.lipsticks_palette_color_tertiary, skin.lipsticks_palette_id, skin.lipsticks_opacity)
+	FaceOverlay("beardstabble", skin.beardstabble_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin.beardstabble_color_primary, 0, 0, 1, skin.beardstabble_opacity)
+	FaceOverlay("hair", skin.hair_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin.hair_color_primary, 0, 0, 1, skin.hair_opacity)
+	FaceOverlay("scars", skin.scars_visibility, skin.scars_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.scars_opacity)
+	FaceOverlay("spots", skin.spots_visibility, skin.spots_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.spots_opacity)
+	FaceOverlay("disc", skin.disc_visibility, skin.disc_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.disc_opacity)
+	FaceOverlay("complex", skin.complex_visibility, skin.complex_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.complex_opacity)
+	FaceOverlay("acne", skin.acne_visibility, skin.acne_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.acne_opacity)
+	FaceOverlay("ageing", skin.ageing_visibility, skin.ageing_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.ageing_opacity)
+	FaceOverlay("freckles", skin.freckles_visibility, skin.freckles_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.freckles_opacity)
+	FaceOverlay("moles", skin.moles_visibility, skin.moles_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.moles_opacity)
+	FaceOverlay("shadows", skin.shadows_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin.shadows_palette_color_primary, skin.shadows_palette_color_secondary, skin.shadows_palette_color_tertiary, skin.shadows_palette_id, skin.shadows_opacity)
+	FaceOverlay("eyebrows", skin.eyebrows_visibility, skin.eyebrows_tx_id, 1, 0, 0, 1.0, 0, 1, skin.eyebrows_color, 0, 0, 1, skin.eyebrows_opacity)
+	FaceOverlay("eyeliners", skin.eyeliner_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin.eyeliner_color_primary, 0, 0, skin.eyeliner_tx_id, skin.eyeliner_opacity)
+	FaceOverlay("blush", skin.blush_visibility, skin.blush_tx_id, 1, 0, 0, 1.0, 0, 1, skin.blush_palette_color_primary, 0, 0, 1, skin.blush_opacity)
+	FaceOverlay("lipsticks", skin.lipsticks_visibility, 1, 1, 0, 0, 1.0, 0, 1, skin.lipsticks_palette_color_primary, skin.lipsticks_palette_color_secondary, skin.lipsticks_palette_color_tertiary, skin.lipsticks_palette_id, skin.lipsticks_opacity)
 	canContinue = true
-	FaceOverlay("grime", skin.grime_visibility, skin.grime_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1,
-		skin.grime_opacity)
+	FaceOverlay("grime", skin.grime_visibility, skin.grime_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.grime_opacity)
 	Wait(200)
 	TriggerServerEvent("vorpcharacter:reloadedskinlistener") -- this event can be listened to whenever u need to listen for rc
 	Citizen.InvokeNative(0xD710A5007C2AC539, PlayerPedId(), 0x3F1F01E5, 0)
@@ -610,7 +591,7 @@ function FaceOverlay(name, visibility, tx_id, tx_normal, tx_material, tx_color_t
 
 				v.opacity = opacity == 0 and 1.0 or opacity
 
-				if name == "grime" and opacity == 0 and tx_id == 0 then
+				if name == "grime" then
 					v.visibility = 0
 				end
 			end
