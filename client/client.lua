@@ -578,6 +578,7 @@ function LoadPlayerComponents(ped, skin, components)
 		skin.lipsticks_opacity)
 	canContinue = true
 	FaceOverlay("grime", skin.grime_visibility, skin.grime_tx_id, 0, 0, 1, 1.0, 0, 0, 0, 0, 0, 1, skin.grime_opacity)
+	SetPedScale(ped, skin.Scale)  -- Still needed
 	Wait(200)
 	TriggerServerEvent("vorpcharacter:reloadedskinlistener") -- this event can be listened to whenever u need to listen for rc
 	Citizen.InvokeNative(0xD710A5007C2AC539, PlayerPedId(), 0x3F1F01E5, 0)
@@ -618,7 +619,7 @@ function FaceOverlay(name, visibility, tx_id, tx_normal, tx_material, tx_color_t
 
 				v.opacity = opacity == 0 and 1.0 or opacity
 
-				if name == "grime" then
+				if name == "grime" and opacity == 0 and tx_id == 0 then
 					v.visibility = 0
 				end
 			end
