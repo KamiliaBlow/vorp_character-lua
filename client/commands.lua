@@ -50,37 +50,3 @@ RegisterCommand("dress", function()
 	end
 	UpdateVariation(__player)
 end)
-
-
-
-local InvokeNative = Citizen.InvokeNative
-local BANDANA_COMPONENT = joaat("CLOTHING_ITEM_M_NECKERCHIEF_003_TINT_001")
-local bandana = nil
-local on = false
-
-RegisterCommand('bandanaon', function(source, args, rawCommand)
-	local __player = PlayerPedId()
-	bandana = tonumber(args[1]) or bandana or BANDANA_COMPONENT
-	if not on then
-		on = true
-		InvokeNative(0xD3A7B003ED343FD9, __player, bandana, true, true)
-		InvokeNative(0xAE72E7DF013AAA61, __player, 0, joaat("BANDANA_ON_RIGHT_HAND"), 1, 0, -1.0) -- _TASK_ITEM_INTERACTION
-		Citizen.Wait(750)
-	end
-	InvokeNative(0x66B957AAC2EAAEAB, __player, bandana, -1829635046, 0, true, 1)
-	InvokeNative(0xAAB86462966168CE, __player, true)
-	InvokeNative(0xCC8CA3E88256E58F, __player, false, true, true, true, false) -- _UPDATE_PED_VARIATION
-end)
-
-RegisterCommand('bandanaoff', function(source, args, rawCommand)
-	local __player = PlayerPedId()
-	bandana = tonumber(args[1]) or bandana or BANDANA_COMPONENT
-	if on then
-		on = false
-		InvokeNative(0xAE72E7DF013AAA61, __player, 0, joaat("BANDANA_OFF_RIGHT_HAND"), 1, 0, -1.0) -- _TASK_ITEM_INTERACTION
-		Citizen.Wait(750)
-	end
-	InvokeNative(0x66B957AAC2EAAEAB, __player, bandana, joaat("base"), 0, true, 1)
-	InvokeNative(0xAAB86462966168CE, __player, true)
-	InvokeNative(0xCC8CA3E88256E58F, __player, false, true, true, true, false) -- _UPDATE_PED_VARIATION
-end)
